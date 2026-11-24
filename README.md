@@ -62,4 +62,58 @@ R = ext["R"]                                  # (3, 3)
 T_m = ext["T_m"]                              # (3, 1) meters (mm는 ext["T_mm"])
 T_d455_from_fish = ext["T_d455_from_fish_mm"] # (4, 4) mm
 T_fish_from_d455 = ext["T_fish_from_d455_mm"] # (4, 4) mm (역변환)
+
 ```
+
+
+#카메라 켜는 메뉴얼 
+
+AVS300 + OX05B1S-RGBIR Camera Setup Guide
+
+Telelian AVS300 (NVIDIA Jetson AGX Thor) 보드에서 OX05B1S-RGBIR (GMSL2 / FAKRA) 카메라를 연결하고 실행하는 매뉴얼입니다.
+
+1. Environment & Hardware Specs
+항목	사양
+Board	Telelian AVS300 (NVIDIA Jetson AGX Thor, L4T R39.2.1)
+Camera Sensor	OmniVision OX05B1S-RGBIR (Sensing SG5-OX05BC, GMSL2 6G)
+Interface	GMSL2 (FAKRA Coaxial Cable)
+Device Tree Overlay	AVS300 4x2-sg5-ox05bc (/boot/tegra264-avs300-camera-gmsl-4x2-6g-sg5-ox05bc-overlay.dtbo)
+Output Format	UYVY 4:2:2, 2592x1800 @ 30 fps
+Video Nodes	/dev/video0 (RGB), /dev/video1 (IR)
+2. Hardware Connection
+FAKRA 동축 케이블을 AVS300의 CAM0 포트에 딸깍 소리가 날 때까지 끝까지 체결합니다.
+반드시 케이블을 연결한 상태에서 전원을 켜거나 재부팅해야 합니다. (GMSL2는 핫플러그 미지원)
+bash
+sudo reboot
+3. Verify Camera Recognition
+
+부팅 후 비디오 장치와 커널 드라이버 인식 상태를 확인합니다.
+
+bash
+# 1. 비디오 장치 확인 (/dev/video0: RGB, /dev/video1: IR)
+ls -l /dev/video*
+# 2. 지원 포맷 및 해상도 확인
+v4l2-ctl -d /dev/video0 --list-formats-ext
+v4l2-ctl -d /dev/video1 --list-formats-ext
+# 3. 드라이버 및 GMSL2 링크 로그 확인
+sudo dmesg | grep -iE "rgbir|max929"
+4. Camera Preview (GStreamer)
+
+종료 시 터미널에서 Ctrl + C를 누릅니다.
+(SSH로 접속해 보드에 연결된 모니터에 띄우는 경우 먼저 export DISPLAY=:0 실행)
+
+RGB (/dev/video0) 원본 화질 출력
+bash
+gst-launch-1.0 nvv4l2camerasrc device=/dev/video0 ! \
+  'video/x-raw(memory:NVMM), format=UYVY, width=2592, height=1800, framerate=30/1' ! \
+  nvvidconv ! 'video/x-raw, format=I420' ! \
+  xvimagesink sync=false
+IR (/dev/video1) 원본 화질 출력
+bash
+gst-launch-1.0 nvv4l2camerasrc device=/dev/video1 ! \
+  'video/x-raw(memory:NVMM), format=UYVY, width=2592, height=1800, framerate=30/1' ! \
+  nvvidconv ! 'video/x-raw, format=I420' ! \
+  xvimagesink sync=false
+자주 사용하는 옵션
+화면이 180° 거꾸로 나올 때: nvvidconv ! → nvvidconv flip-method=2 !
+창 크기 축소 출력: 'video/x-raw, format=I420' → 'video/x-raw, format=I420, width=960, height=666'
