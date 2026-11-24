@@ -66,7 +66,6 @@ T_fish_from_d455 = ext["T_fish_from_d455_mm"] # (4, 4) mm (역변환)
 ```
 
 
-아래 마크다운을 그대로 복사해서 GitHub `README.md`에 붙여넣으시면 됩니다.
 
 ````markdown
 # AVS300 + OX05B1S-RGBIR Camera Setup Guide
