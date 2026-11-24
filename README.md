@@ -66,54 +66,137 @@ T_fish_from_d455 = ext["T_fish_from_d455_mm"] # (4, 4) mm (역변환)
 ```
 
 
-#카메라 켜는 메뉴얼 
+아래 마크다운을 그대로 복사해서 GitHub `README.md`에 붙여넣으시면 됩니다.
 
-AVS300 + OX05B1S-RGBIR Camera Setup Guide
+````markdown
+# AVS300 + OX05B1S-RGBIR Camera Setup Guide
 
-Telelian AVS300 (NVIDIA Jetson AGX Thor) 보드에서 OX05B1S-RGBIR (GMSL2 / FAKRA) 카메라를 연결하고 실행하는 매뉴얼입니다.
+Telelian **AVS300 (NVIDIA Jetson AGX Thor)** 보드에서 **OX05B1S-RGBIR (GMSL2 / FAKRA)** 카메라를 연결하고 실행하는 매뉴얼입니다.
 
-1. Environment & Hardware Specs
-항목	사양
-Board	Telelian AVS300 (NVIDIA Jetson AGX Thor, L4T R39.2.1)
-Camera Sensor	OmniVision OX05B1S-RGBIR (Sensing SG5-OX05BC, GMSL2 6G)
-Interface	GMSL2 (FAKRA Coaxial Cable)
-Device Tree Overlay	AVS300 4x2-sg5-ox05bc (/boot/tegra264-avs300-camera-gmsl-4x2-6g-sg5-ox05bc-overlay.dtbo)
-Output Format	UYVY 4:2:2, 2592x1800 @ 30 fps
-Video Nodes	/dev/video0 (RGB), /dev/video1 (IR)
-2. Hardware Connection
-FAKRA 동축 케이블을 AVS300의 CAM0 포트에 딸깍 소리가 날 때까지 끝까지 체결합니다.
-반드시 케이블을 연결한 상태에서 전원을 켜거나 재부팅해야 합니다. (GMSL2는 핫플러그 미지원)
-bash
+---
+
+## 1. Environment & Hardware Specs
+
+| 항목 | 사양 |
+| :--- | :--- |
+| **Board** | Telelian AVS300 (NVIDIA Jetson AGX Thor, L4T R39.2.1) |
+| **Camera Sensor** | OmniVision OX05B1S-RGBIR (Sensing SG5-OX05BC, GMSL2 6G) |
+| **Interface** | GMSL2 (FAKRA Coaxial Cable) |
+| **Device Tree Overlay** | `AVS300 4x2-sg5-ox05bc` (`/boot/tegra264-avs300-camera-gmsl-4x2-6g-sg5-ox05bc-overlay.dtbo`) |
+| **Output Format** | `UYVY 4:2:2`, `2592x1800 @ 30 fps` |
+| **Video Nodes** | `/dev/video0` (RGB), `/dev/video1` (IR) |
+
+---
+
+## 2. Hardware Connection
+
+1. FAKRA 동축 케이블을 AVS300의 **CAM0 포트**에 딸깍 소리가 날 때까지 끝까지 체결합니다.
+2. **반드시 케이블을 연결한 상태에서 전원을 켜거나 재부팅**해야 합니다. (GMSL2는 핫플러그 미지원)
+
+```bash
 sudo reboot
-3. Verify Camera Recognition
+```
+
+---
+
+## 3. Verify Camera Recognition
 
 부팅 후 비디오 장치와 커널 드라이버 인식 상태를 확인합니다.
 
-bash
+```bash
 # 1. 비디오 장치 확인 (/dev/video0: RGB, /dev/video1: IR)
 ls -l /dev/video*
+
 # 2. 지원 포맷 및 해상도 확인
 v4l2-ctl -d /dev/video0 --list-formats-ext
 v4l2-ctl -d /dev/video1 --list-formats-ext
+
 # 3. 드라이버 및 GMSL2 링크 로그 확인
 sudo dmesg | grep -iE "rgbir|max929"
-4. Camera Preview (GStreamer)
+```
 
-종료 시 터미널에서 Ctrl + C를 누릅니다.
-(SSH로 접속해 보드에 연결된 모니터에 띄우는 경우 먼저 export DISPLAY=:0 실행)
+---
 
-RGB (/dev/video0) 원본 화질 출력
-bash
+## 4. Camera Preview (GStreamer)
+
+종료 시 터미널에서 `Ctrl + C`를 누릅니다.  
+*(SSH로 접속해 보드에 연결된 모니터에 띄우는 경우 먼저 `export DISPLAY=:0` 실행)*
+
+### RGB (`/dev/video0`) 원본 화질 출력
+```bash
 gst-launch-1.0 nvv4l2camerasrc device=/dev/video0 ! \
   'video/x-raw(memory:NVMM), format=UYVY, width=2592, height=1800, framerate=30/1' ! \
   nvvidconv ! 'video/x-raw, format=I420' ! \
   xvimagesink sync=false
-IR (/dev/video1) 원본 화질 출력
-bash
+```
+
+### IR (`/dev/video1`) 원본 화질 출력
+```bash
 gst-launch-1.0 nvv4l2camerasrc device=/dev/video1 ! \
   'video/x-raw(memory:NVMM), format=UYVY, width=2592, height=1800, framerate=30/1' ! \
   nvvidconv ! 'video/x-raw, format=I420' ! \
   xvimagesink sync=false
-자주 사용하는 옵션
-화면이 180° 거꾸로 나올 때: nvvidconv ! → nvvidconv flip-method=2 !
-창 크기 축소 출력: 'video/x-raw, format=I420' → 'video/x-raw, format=I420, width=960, height=666'
+```
+
+### 자주 사용하는 옵션
+- **화면이 180° 거꾸로 나올 때:** `nvvidconv !` → `nvvidconv flip-method=2 !`
+- **창 크기 축소 출력:** `'video/x-raw, format=I420'` → `'video/x-raw, format=I420, width=960, height=666'`
+
+---
+
+## 5. OpenCV (Python) Pipeline Example
+
+```python
+import cv2
+
+gst_pipe = (
+    "nvv4l2camerasrc device=/dev/video0 ! "
+    "video/x-raw(memory:NVMM), format=UYVY, width=2592, height=1800, framerate=30/1 ! "
+    "nvvidconv ! video/x-raw, format=BGRx ! "
+    "videoconvert ! video/x-raw, format=BGR ! "
+    "appsink drop=1 sync=false"
+)
+
+cap = cv2.VideoCapture(gst_pipe, cv2.CAP_GSTREAMER)
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:
+        continue
+    cv2.imshow("OX05B1S RGB", cv2.resize(frame, (1296, 900)))
+    if cv2.waitKey(1) & 0xFF == ord("q"):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+```
+
+---
+
+## 6. Device Tree Overlay Check (참고)
+
+현재 보드에 적용된 오버레이 확인 및 변경 방법:
+
+```bash
+# 현재 적용된 오버레이 확인
+cat /boot/extlinux/extlinux.conf | grep OVERLAYS
+
+# 선택 가능한 오버레이 목록 확인
+sudo /opt/nvidia/jetson-io/config-by-hardware.py -l
+
+# OX05B1S 오버레이 적용 (이미 적용되어 있다면 불필요)
+sudo /opt/nvidia/jetson-io/config-by-hardware.py -n "AVS300 4x2-sg5-ox05bc"
+sudo reboot
+```
+
+---
+
+## 7. Troubleshooting
+
+| 증상 | 원인 | 해결 방법 |
+| :--- | :--- | :--- |
+| `/dev/video*`가 생성되지 않음 | 부팅 후 케이블 연결 또는 체결 불량 | FAKRA 케이블 재체결 후 `sudo reboot` |
+| `Device '/dev/video0' is busy` | 이전 카메라 프로세스가 점유 중 | `pkill -9 gst-launch-1.0` 실행 후 재시도 (`sudo fuser -v /dev/video0`로 점유 프로세스 확인) |
+| SSH 실행 시 창이 뜨지 않음 | `DISPLAY` 환경변수 미설정 | `export DISPLAY=:0` 입력 후 재실행 |
+| 화면이 상하좌우 반전됨 | 카메라 장착 방향 | GStreamer 파이프라인에 `nvvidconv flip-method=2` 추가 또는 카메라 정방향 재장착 |
+| `v4l2-ctl` 명령어 없음 | `v4l-utils` 미설치 | `sudo apt update && sudo apt install -y v4l-utils` |
+````
