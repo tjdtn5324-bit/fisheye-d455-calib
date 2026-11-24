@@ -1,0 +1,17 @@
+# 촬영 원본 이미지 및 비교 이미지 (개인 얼굴/환경 사진이 공개 저장소에 올라가지 않도록 제외)
+calib_images/
+extrinsic_images/
+extrinsic_images_prev/
+*.png
+*.jpg
+*.jpeg
+
+# 백업 및 임시 결과 파일
+*_prev.npz
+*_all41.npz
+NOTION_CALIB_GUIDE.md
+
+# Python 캐시
+__pycache__/
+*.pyc
+.DS_Store
